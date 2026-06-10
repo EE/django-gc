@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class DjangoGcConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'django_gc'
+    verbose_name = 'Django Garbage Collection'

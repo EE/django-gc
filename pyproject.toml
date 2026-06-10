@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-gc"
+version = "0.1.0"
+description = "Garbage collection for Django models: delete instances that are no longer referenced by any foreign key"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "django>=4.2",
+]
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-django",
+]
+
+[tool.setuptools.packages.find]
+include = ["django_gc*"]
+
+[tool.setuptools.package-data]
+django_gc = ["py.typed"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["."]
