@@ -107,13 +107,24 @@ def find_fk_fields(
     """Find all ForeignKey fields pointing to target_model, excluding ignored fields."""
     fk_fields = []
     ignored_set = set(ignored_fields)
+    matched_ignored = set()
 
     for model in apps.get_models():
         for field in model._meta.get_fields():
             if isinstance(field, models.ForeignKey) and field.related_model == target_model:
                 field_path = f"{model._meta.label}.{field.name}"
-                if field_path not in ignored_set:
+                if field_path in ignored_set:
+                    matched_ignored.add(field_path)
+                else:
                     fk_fields.append((model, field))
+
+    unmatched_ignored = ignored_set - matched_ignored
+    if unmatched_ignored:
+        raise CommandError(
+            f"Ignored referencing fields for {target_model._meta.label} do not match "
+            f"any ForeignKey pointing to it: {', '.join(sorted(unmatched_ignored))}. "
+            "The configuration is stale or contains a typo."
+        )
 
     return fk_fields
 
