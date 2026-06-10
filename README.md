@@ -64,7 +64,10 @@ class Attachment(models.Model):
 
 - `gc_enabled` (required, must be `True`) opts the model in.
 - `gc_ignored_referencing_fields` (optional) lists referencing foreign keys to
-  ignore when deciding whether a row is still in use.
+  ignore when deciding whether a row is still in use. Every listed path must
+  match an existing `ForeignKey` to the model — the command fails loudly on
+  paths that don't (including in dry-run mode), so stale configuration is
+  caught instead of silently changing behavior.
 - `gc_filter` (optional) is a callable that receives the base queryset and
   returns the queryset of garbage collection candidates.
 

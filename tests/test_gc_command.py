@@ -2,7 +2,7 @@ import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
 
-from tests.testapp.models import Document, Reference
+from tests.testapp.models import Cache, CacheLog, Document, Reference
 
 
 @pytest.mark.django_db
@@ -40,6 +40,31 @@ def test_settings_config(settings) -> None:
     # because the command was limited to a single model.
     assert not Reference.objects.exists()
     assert Document.objects.filter(pk=referenced.pk).exists()
+
+
+@pytest.mark.django_db
+def test_ignored_referencing_field_does_not_keep_row_alive() -> None:
+    cache = Cache.objects.create()
+    CacheLog.objects.create(cache=cache)
+
+    call_command('gc', '--delete', '--model', 'testapp.Cache')
+
+    assert not Cache.objects.exists()
+    # The ignored reference goes away with the cascade.
+    assert not CacheLog.objects.exists()
+
+
+@pytest.mark.django_db
+def test_unmatched_ignored_field_path_fails_loudly(settings) -> None:
+    settings.GARBAGE_COLLECTION_CONFIG = {
+        'testapp.Reference': {
+            'ignored_referencing_fields': ['testapp.Document.no_such_field'],
+        },
+    }
+
+    # Even a dry run reports the stale path.
+    with pytest.raises(CommandError, match='no_such_field'):
+        call_command('gc', '--model', 'testapp.Reference')
 
 
 @pytest.mark.django_db
