@@ -2,12 +2,11 @@ from argparse import ArgumentParser
 from typing import Any, Callable
 
 from django.apps import apps
-from django.conf import settings
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.db import models, transaction
 from django.db.models import Model, QuerySet
 
-from django_gc.registry import get_gc_registry
+from django_gc.core import find_fk_fields, get_combined_config
 
 
 class Command(BaseCommand):
@@ -29,22 +28,7 @@ class Command(BaseCommand):
 
         total_deleted = 0
 
-        # Combine hardcoded config with registry-discovered config
-        # Registry takes precedence over hardcoded config
-        hardcoded_config = getattr(settings, 'GARBAGE_COLLECTION_CONFIG', {})
-        registry_config = get_gc_registry()
-
-        # Check for collisions between hardcoded and registry config
-        collisions = set(hardcoded_config.keys()) & set(registry_config.keys())
-        if collisions:
-            raise CommandError(
-                f"Configuration collision detected for models: {', '.join(sorted(collisions))}. "
-                "Models cannot be configured both in settings.GARBAGE_COLLECTION_CONFIG "
-                "and via model class attributes."
-            )
-
-        combined_config = hardcoded_config.copy()
-        combined_config.update(registry_config)
+        combined_config = get_combined_config()
 
         for model_label, config in combined_config.items():
             if specific_model and model_label != specific_model:
@@ -98,35 +82,6 @@ def garbage_collect_model(
         last_processed_id = last_id
 
     return total_deleted
-
-
-def find_fk_fields(
-    target_model: type[Model],
-    ignored_fields: list[str],
-) -> list[tuple[type[Model], models.ForeignKey[Model, Model]]]:
-    """Find all ForeignKey fields pointing to target_model, excluding ignored fields."""
-    fk_fields = []
-    ignored_set = set(ignored_fields)
-    matched_ignored = set()
-
-    for model in apps.get_models():
-        for field in model._meta.get_fields():
-            if isinstance(field, models.ForeignKey) and field.related_model == target_model:
-                field_path = f"{model._meta.label}.{field.name}"
-                if field_path in ignored_set:
-                    matched_ignored.add(field_path)
-                else:
-                    fk_fields.append((model, field))
-
-    unmatched_ignored = ignored_set - matched_ignored
-    if unmatched_ignored:
-        raise CommandError(
-            f"Ignored referencing fields for {target_model._meta.label} do not match "
-            f"any ForeignKey pointing to it: {', '.join(sorted(unmatched_ignored))}. "
-            "The configuration is stale or contains a typo."
-        )
-
-    return fk_fields
 
 
 @transaction.atomic

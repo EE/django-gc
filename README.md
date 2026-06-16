@@ -113,6 +113,29 @@ Options:
 - `--model app_label.ModelName` — only process a single configured model.
 - `--batch-size N` — rows examined per transaction (default 1000).
 
+## Inspecting a single object
+
+The `gc_inspect` command reports the garbage collection status of one object
+without deleting anything. It's useful for answering "why is this row still
+here?" or "would this row be collected on the next run?":
+
+```
+python manage.py gc_inspect myapp.Attachment 42
+```
+
+The model must be configured for garbage collection. The reported status is
+one of:
+
+- *object not found* — no row with that primary key exists.
+- *object excluded by filter* — the row exists but the model's `gc_filter`
+  excludes it, so it is not currently a deletion candidate (a time-based
+  filter may still let it through later).
+- *object referenced by N other objects* — the row is still referenced by
+  foreign keys (each referencing `model.field (pk=...)` is listed), so it is
+  retained.
+- *object is unreferenced and would be collected* — the row passes the filter
+  and nothing references it, so a `gc --delete` run would remove it.
+
 A typical deployment runs it from a daily cron job:
 
 ```
